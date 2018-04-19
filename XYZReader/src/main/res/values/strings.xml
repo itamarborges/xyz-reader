@@ -8,5 +8,10 @@
     <string name="action_share">Share</string>
 
     <string name="up">Up</string>
+    <string name="transition_book_cover">transition_book_cover</string>
+
+    <string name="ops_it_seems_you_don_t_have_internet_connection">Ops...It seems you don\'t have Internet connection</string>
+    <string name="try_again">Try again</string>
+
 
 </resources>

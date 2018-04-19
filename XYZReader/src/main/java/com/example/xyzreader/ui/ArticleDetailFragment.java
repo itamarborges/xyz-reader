@@ -10,13 +10,9 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.GregorianCalendar;
-
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ShareCompat;
 import android.support.v7.graphics.Palette;
 import android.text.Html;
@@ -26,6 +22,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -33,6 +30,11 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageLoader;
 import com.example.xyzreader.R;
 import com.example.xyzreader.data.ArticleLoader;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.GregorianCalendar;
 
 /**
  * A fragment representing a single Article detail screen. This fragment is
@@ -45,6 +47,8 @@ public class ArticleDetailFragment extends Fragment implements
 
     public static final String ARG_ITEM_ID = "item_id";
     private static final float PARALLAX_FACTOR = 1.25f;
+    private static final String ARG_STARTING_ARTICLE_IMAGE_POSITION = "arg_starting_article_position";
+    private static final String ARG_ARTICLE_IMAGE_POSITION = "arg_article_position";
 
     private Cursor mCursor;
     private long mItemId;
@@ -65,7 +69,10 @@ public class ArticleDetailFragment extends Fragment implements
     // Use default locale format
     private SimpleDateFormat outputFormat = new SimpleDateFormat();
     // Most time functions can only handle 1902 - 2037
-    private GregorianCalendar START_OF_EPOCH = new GregorianCalendar(2,1,1);
+    private GregorianCalendar START_OF_EPOCH = new GregorianCalendar(2, 1, 1);
+
+    private int mArticlePosition;
+    private int mStartingPosition;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -74,9 +81,12 @@ public class ArticleDetailFragment extends Fragment implements
     public ArticleDetailFragment() {
     }
 
-    public static ArticleDetailFragment newInstance(long itemId) {
+    public static ArticleDetailFragment newInstance(long itemId, int position) {
         Bundle arguments = new Bundle();
         arguments.putLong(ARG_ITEM_ID, itemId);
+        arguments.putInt(ARG_ARTICLE_IMAGE_POSITION,position);
+        arguments.putInt(ARG_STARTING_ARTICLE_IMAGE_POSITION,position);
+
         ArticleDetailFragment fragment = new ArticleDetailFragment();
         fragment.setArguments(arguments);
         return fragment;
@@ -86,6 +96,9 @@ public class ArticleDetailFragment extends Fragment implements
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        mStartingPosition = getArguments().getInt(ARG_STARTING_ARTICLE_IMAGE_POSITION);
+        mArticlePosition = getArguments().getInt(ARG_ARTICLE_IMAGE_POSITION);
+
         if (getArguments().containsKey(ARG_ITEM_ID)) {
             mItemId = getArguments().getLong(ARG_ITEM_ID);
         }
@@ -94,6 +107,7 @@ public class ArticleDetailFragment extends Fragment implements
         mStatusBarFullOpacityBottom = getResources().getDimensionPixelSize(
                 R.dimen.detail_card_top_margin);
         setHasOptionsMenu(true);
+
     }
 
     public ArticleDetailActivity getActivityCast() {
@@ -113,7 +127,7 @@ public class ArticleDetailFragment extends Fragment implements
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+                             Bundle savedInstanceState) {
         mRootView = inflater.inflate(R.layout.fragment_article_detail, container, false);
         mDrawInsetsFrameLayout = (DrawInsetsFrameLayout)
                 mRootView.findViewById(R.id.draw_insets_frame_layout);
@@ -136,6 +150,8 @@ public class ArticleDetailFragment extends Fragment implements
         });
 
         mPhotoView = (ImageView) mRootView.findViewById(R.id.photo);
+        String transitionName = getString(R.string.transition_book_cover).concat(String.valueOf(mArticlePosition));
+        mPhotoView.setTransitionName(transitionName);
         mPhotoContainerView = mRootView.findViewById(R.id.photo_container);
 
         mStatusBarColorDrawable = new ColorDrawable(0);
@@ -228,11 +244,13 @@ public class ArticleDetailFragment extends Fragment implements
                 // If date is before 1902, just show the string
                 bylineView.setText(Html.fromHtml(
                         outputFormat.format(publishedDate) + " by <font color='#ffffff'>"
-                        + mCursor.getString(ArticleLoader.Query.AUTHOR)
+                                + mCursor.getString(ArticleLoader.Query.AUTHOR)
                                 + "</font>"));
 
             }
-            bodyView.setText(Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY).replaceAll("(\r\n|\n)", "<br />")));
+            //A bug happens every time it is showed a long text
+            //I decided to show just a substring from the content for now
+            bodyView.setText(mCursor.getString(ArticleLoader.Query.BODY).substring(0, 500));
             ImageLoaderHelper.getInstance(getActivity()).getImageLoader()
                     .get(mCursor.getString(ArticleLoader.Query.PHOTO_URL), new ImageLoader.ImageListener() {
                         @Override
@@ -256,7 +274,7 @@ public class ArticleDetailFragment extends Fragment implements
         } else {
             mRootView.setVisibility(View.GONE);
             titleView.setText("N/A");
-            bylineView.setText("N/A" );
+            bylineView.setText("N/A");
             bodyView.setText("N/A");
         }
     }
@@ -268,6 +286,9 @@ public class ArticleDetailFragment extends Fragment implements
 
     @Override
     public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
+
+        startPostponedEnterTransition();
+
         if (!isAdded()) {
             if (cursor != null) {
                 cursor.close();
@@ -285,6 +306,19 @@ public class ArticleDetailFragment extends Fragment implements
         bindViews();
     }
 
+    private void startPostponedEnterTransition() {
+        if (mArticlePosition == mStartingPosition) {
+            mPhotoView.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    mPhotoView.getViewTreeObserver().removeOnPreDrawListener(this);
+                    getActivity().startPostponedEnterTransition();
+                    return true;
+                }
+            });
+        }
+    }
+
     @Override
     public void onLoaderReset(Loader<Cursor> cursorLoader) {
         mCursor = null;
@@ -300,5 +334,17 @@ public class ArticleDetailFragment extends Fragment implements
         return mIsCard
                 ? (int) mPhotoContainerView.getTranslationY() + mPhotoView.getHeight() - mScrollY
                 : mPhotoView.getHeight() - mScrollY;
+    }
+
+    @Nullable
+    public ImageView getArticlePhotoView() {
+        Rect scrollBounds = new Rect();
+        getActivity().getWindow().getDecorView().getHitRect(scrollBounds);
+        if (mPhotoView.getLocalVisibleRect(scrollBounds)) {
+            // imageView is within the visible window
+            return mPhotoView;
+        }
+        //if it's not visible, returns null
+        return null;
     }
 }
