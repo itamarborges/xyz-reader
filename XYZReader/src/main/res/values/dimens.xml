@@ -8,4 +8,10 @@
     <dimen name="fab_press_translation_z">6dp</dimen>
     <dimen name="fab_margin">24dp</dimen>
 
+    <!-- elevation, according to material design:
+    https://material.io/guidelines/material-design/elevation-shadows.html#elevation-shadows-elevation-android
+    !-->
+    <dimen name="appbar_elevation">4dp</dimen>
+    <dimen name="card_elevation">2dp</dimen>
+
 </resources>

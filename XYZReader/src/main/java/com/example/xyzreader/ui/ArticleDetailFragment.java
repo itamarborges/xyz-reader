@@ -221,9 +221,6 @@ public class ArticleDetailFragment extends Fragment implements
         bylineView.setMovementMethod(new LinkMovementMethod());
         TextView bodyView = (TextView) mRootView.findViewById(R.id.article_body);
 
-
-        bodyView.setTypeface(Typeface.createFromAsset(getResources().getAssets(), "Rosario-Regular.ttf"));
-
         if (mCursor != null) {
             mRootView.setAlpha(0);
             mRootView.setVisibility(View.VISIBLE);
@@ -250,7 +247,7 @@ public class ArticleDetailFragment extends Fragment implements
             }
             //A bug happens every time it is showed a long text
             //I decided to show just a substring from the content for now
-            bodyView.setText(mCursor.getString(ArticleLoader.Query.BODY).substring(0, 500));
+            bodyView.setText(Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY).substring(0, 750).replaceAll("(\\.\r\n)", ".<br /><br />").replaceAll("(\r\n)", " ")));
             ImageLoaderHelper.getInstance(getActivity()).getImageLoader()
                     .get(mCursor.getString(ArticleLoader.Query.PHOTO_URL), new ImageLoader.ImageListener() {
                         @Override
